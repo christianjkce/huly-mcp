@@ -742,3 +742,8 @@
 ### Patch Changes
 
 - Add author field, format/check-format/check-all scripts, prepublishOnly safety gate, and init changesets for versioning
+# 2026-08-13
+
+- Task 74: project-local launcher now restricts Huly MCP discovery/invocation
+  to `projects,issues,comments,documents,search` for Codex, Claude, and
+  Antigravity. Token and workspace remain runtime-derived from `key.env`.
