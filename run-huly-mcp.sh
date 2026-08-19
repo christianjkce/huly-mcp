@@ -65,5 +65,5 @@ exec env \
   HULY_WORKSPACE="$workspace" \
   HULY_TOOL_MODE=auto \
   PROXY_OUTPUT_STRICT=true \
-  TOOLSETS="${HULY_TOOLSETS:-projects,issues,comments,documents,search,channels}" \
+  TOOLSETS="${HULY_TOOLSETS:-projects,issues,comments,documents,search,channels,cards}" \
   "$NODE_BIN" /srv/projects/huly-mcp/dist/index.cjs
