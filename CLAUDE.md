@@ -153,6 +153,8 @@ Search examples for real usage patterns when implementing MCP tools.
 
 ## Huly API Gotchas
 
+**Custom Properties on Cards**: The Huly API natively stores custom component fields (e.g., custom6a8...) on the `Card` object directly. The `get_card` implementation (`src/huly/operations/cards.ts`) intentionally collects these non-standard fields and exposes them in a `properties` object. When updating the API client or modifying `get_card`, ensure this extraction logic is preserved so agents can read custom Card Component fields.
+
 **Eventual consistency**: Huly's client does not see its own writes immediately within the same session. `findOne`, `addCollection` (resolves `attachedTo` ref internally), and other read-after-write patterns will hang or return stale data if the target document was just created.
 
 **Query typing**: Huly's SDK `DocumentQuery<T>` permits arbitrary string keys. Use `hulyQuery<T>()` for new or changed direct `client.findAll` / `client.findOne` query object literals, and use `StrictDocumentQuery<T>` for mutable query builders before passing them through `hulyQuery`. This catches invented fields such as `"blockedBy._id"` locally. If a dynamic or intentionally escaped query must bypass this helper, document the Huly behavior being relied on at the call site.
