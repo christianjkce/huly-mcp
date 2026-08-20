@@ -148,7 +148,7 @@ const findPersonByExactName = (
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   Effect.gen(function* () {
     const persons = yield* client.findAll<HulyPerson>(contact.class.Person, { name })
-    const userProfiles = yield* client.findAll<HulyPerson>("contact:class:UserProfile", { name })
+    const userProfiles = yield* client.findAll<HulyPerson>("contact:class:UserProfile", { title: name } as any)
     const allPersons = [...persons, ...userProfiles]
 
     if (allPersons.length === 0) {
@@ -233,7 +233,7 @@ export const findPersonByEmailOrName = (
     // 3. Exact name match
     const exactPerson = yield* client.findOne<HulyPerson>(contact.class.Person, { name: emailOrName })
     if (exactPerson !== undefined) return exactPerson
-    const exactUserProfile = yield* client.findOne<HulyPerson>("contact:class:UserProfile", { name: emailOrName })
+    const exactUserProfile = yield* client.findOne<HulyPerson>("contact:class:UserProfile", { title: emailOrName } as any)
     if (exactUserProfile !== undefined) return exactUserProfile
 
     // 4. Substring email channel match via $like (email channels only)
@@ -253,6 +253,6 @@ export const findPersonByEmailOrName = (
     const likePerson = yield* client.findOne<HulyPerson>(contact.class.Person, { name: { $like: `%${escaped}%` } })
     if (likePerson !== undefined) return likePerson
     
-    const likeUserProfile = yield* client.findOne<HulyPerson>("contact:class:UserProfile", { name: { $like: `%${escaped}%` } })
+    const likeUserProfile = yield* client.findOne<HulyPerson>("contact:class:UserProfile", { title: { $like: `%${escaped}%` } } as any)
     return likeUserProfile
   })
