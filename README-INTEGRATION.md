@@ -66,3 +66,30 @@ Huly, despite consistent persisted account data. Do not work around it by
 sharing another identity or minting a token; preserve the separate sender
 identities and reproduce/report the defect upstream with the version and stack
 trace from OPS-33.
+
+## Rollback von 0.49.5 auf 0.49.4 (Notfallplan)
+
+Sollte die Version 0.49.5 im laufenden Betrieb fehlschlagen, existiert ein harter Rückweg auf die alte 0.49.4 Fassung:
+
+1. Stoppe alle Agenten, die den Huly MCP Server gerade nutzen.
+2. Wechsle im Verzeichnis `/srv/projects/huly-mcp` in den Git-Branch `backup-pre-0.49.5-update`.
+   ```bash
+   git checkout backup-pre-0.49.5-update
+   ```
+3. (Optional) Stelle die physisch gesicherte CJS-Datei aus dem Backup wieder her, falls kein neuer Build gewünscht ist:
+   ```bash
+   cp dist/index.cjs.backup-0.49.4 dist/index.cjs
+   ```
+4. Führe einen Downgrade der NPM-Abhängigkeiten durch, indem du `pnpm install` auf Basis des alten `pnpm-lock.yaml` startest:
+   ```bash
+   pnpm install
+   ```
+5. Baue den MCP Server neu (falls Schritt 3 übersprungen wurde):
+   ```bash
+   pnpm build:mcp
+   ```
+6. Töte alle verwaisten Node-Prozesse, damit beim nächsten Start definitiv die 0.49.4 Fassung geladen wird:
+   ```bash
+   pkill -f huly-mcp
+   ```
+

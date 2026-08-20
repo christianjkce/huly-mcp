@@ -121,7 +121,7 @@ export const CardDetailSchema = Schema.Struct({
   version: Schema.optionalKey(CardVersionMetadataSchema),
   modifiedOn: Schema.optional(Schema.Number),
   createdOn: Schema.optional(Schema.Number),
-  properties: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+  properties: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 })
 export type CardDetail = Schema.Schema.Type<typeof CardDetailSchema>
 
