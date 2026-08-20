@@ -46,3 +46,23 @@ During initialization Huly emits repeated model-sync warnings for missing
 model documents. They do not prevent authentication or read access and are
 recorded as an open observation. They must be reassessed before declaring the
 three-CLI write workflow complete.
+
+## Identity write check (OPS-33, 2026-08-20)
+
+The Huly Selfhost stack runs `v0.7.426`; the local MCP package is `0.49.4`.
+The separate `codex`, `agy`, and `agenten` identities completed a real
+`add_comment` transaction. `claude` can read, but every tested write (`create_issue`,
+`add_comment`, `update_issue`, and channel message) fails with
+`platform:status:AccountMismatch`.
+
+This is not a workspace-role or duplicate-account problem: the account service,
+workspace membership, and the workspace Person document all resolve
+`claude@jkce.de` to `c8abe039-6509-419e-9036-d0f6fe76dba3` with role
+`MAINTAINER`, and no second account has that email. In this Huly release the
+Transactor's `IdentityMiddleware` rejects every transaction when its internal
+`modifiedBy`-social-identity map does not resolve to the authenticated account.
+The observed rejection is therefore an inconsistent internal identity map in
+Huly, despite consistent persisted account data. Do not work around it by
+sharing another identity or minting a token; preserve the separate sender
+identities and reproduce/report the defect upstream with the version and stack
+trace from OPS-33.
