@@ -7,7 +7,8 @@ integrations.
 
 - Source revision: `ffdb965`
 - MCP version: `0.49.4`
-- Huly URL: `https://huly.jkce.de`
+- Huly URL: local default `http://127.0.0.1:8087`; set `HULY_URL` explicitly
+  for an external or reverse-proxied endpoint such as `https://huly.jkce.de`
 - Authentication: token from `/srv/projects/key.env`, variable `HulyToken`
 - Workspace: extracted from the token payload at process start; the value is
   never logged or stored in this repository
@@ -92,4 +93,3 @@ Sollte die Version 0.49.5 im laufenden Betrieb fehlschlagen, existiert ein harte
    ```bash
    pkill -f huly-mcp
    ```
-

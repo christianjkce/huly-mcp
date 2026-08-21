@@ -59,8 +59,12 @@ if (typeof payload.workspace !== "string" || payload.workspace.length === 0) pro
 process.stdout.write(payload.workspace)
 ')
 
+# Host-seitige MCP-Aufrufe gehen standardmaessig direkt zum lokalen Huly-nginx.
+# Fuer den externen Endpoint bleibt eine explizite HULY_URL-Ueberschreibung moeglich.
+HULY_ENDPOINT="${HULY_URL:-http://127.0.0.1:8087}"
+
 exec env \
-  HULY_URL=https://huly.jkce.de \
+  HULY_URL="$HULY_ENDPOINT" \
   HULY_TOKEN="$token" \
   HULY_WORKSPACE="$workspace" \
   HULY_TOOL_MODE=auto \
