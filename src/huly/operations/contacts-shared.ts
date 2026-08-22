@@ -148,7 +148,7 @@ const findPersonByExactName = (
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   Effect.gen(function* () {
     const persons = yield* client.findAll<HulyPerson>(contact.class.Person, { name })
-    const userProfiles = yield* client.findAll<HulyPerson>("contact:class:UserProfile", { title: name } as any)
+    type UserProfile = HulyPerson & { title: string }; const userProfiles = yield* client.findAll<UserProfile>("contact:class:UserProfile", { title: name })
     const allPersons = [...persons, ...userProfiles]
 
     if (allPersons.length === 0) {
@@ -214,6 +214,7 @@ export const findPersonByEmailOrName = (
   emailOrName: string
 ): Effect.Effect<HulyPerson | undefined, HulyClientError> =>
   Effect.gen(function* () {
+    type UserProfile = HulyPerson & { title: string }
     // 1. SocialIdentity email match (workspace members — primary source)
     const socialIdentityPerson = yield* findPersonBySocialIdentityEmail(client, emailOrName)
     if (socialIdentityPerson !== undefined) return socialIdentityPerson
@@ -233,7 +234,7 @@ export const findPersonByEmailOrName = (
     // 3. Exact name match
     const exactPerson = yield* client.findOne<HulyPerson>(contact.class.Person, { name: emailOrName })
     if (exactPerson !== undefined) return exactPerson
-    const exactUserProfile = yield* client.findOne<HulyPerson>("contact:class:UserProfile", { title: emailOrName } as any)
+    const exactUserProfile = yield* client.findOne<UserProfile>("contact:class:UserProfile", { title: emailOrName })
     if (exactUserProfile !== undefined) return exactUserProfile
 
     // 4. Substring email channel match via $like (email channels only)
@@ -253,6 +254,6 @@ export const findPersonByEmailOrName = (
     const likePerson = yield* client.findOne<HulyPerson>(contact.class.Person, { name: { $like: `%${escaped}%` } })
     if (likePerson !== undefined) return likePerson
     
-    const likeUserProfile = yield* client.findOne<HulyPerson>("contact:class:UserProfile", { title: { $like: `%${escaped}%` } } as any)
+    const likeUserProfile = yield* client.findOne<UserProfile>("contact:class:UserProfile", { title: { $like: `%${escaped}%` } })
     return likeUserProfile
   })
