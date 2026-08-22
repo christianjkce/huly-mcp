@@ -1,3 +1,4 @@
+/* oxlint-disable hulymcp/no-double-type-assertion -- in-memory SDK fixtures bridge erased Huly UserProfile fields. */
 import { describe, it } from "@effect/vitest"
 import type { Channel, Person } from "@hcengineering/contact"
 import type {
@@ -52,6 +53,7 @@ import {
   milestoneId,
   milestoneIdentifier,
   milestoneLabel,
+  personName,
   projectIdentifier,
   statusName
 } from "../../helpers/brands.js"
@@ -467,7 +469,10 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         }
         if (typeof q.title === "object" && "$like" in (q.title as Record<string, unknown>)) {
           const pattern = assertExists((q.title as { readonly $like?: string }).$like).replace(/%/g, "")
-          const found = userProfiles.find((p) => (p as unknown as { title: string }).title && (p as unknown as { title: string }).title.includes(pattern))
+          const found = userProfiles.find(
+            (p) =>
+              (p as unknown as { title: string }).title && (p as unknown as { title: string }).title.includes(pattern)
+          )
           return Effect.succeed(found)
         }
       }
@@ -2445,7 +2450,10 @@ describe("updateIssue", () => {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
-        const userProfile = makePerson({ _id: "profile-1" as Ref<Person>, title: "Developer Agent" } as unknown as Partial<Person>)
+        const userProfile = makePerson({
+          _id: "profile-1" as Ref<Person>,
+          title: "Developer Agent"
+        } as unknown as Partial<Person>)
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
@@ -2460,7 +2468,7 @@ describe("updateIssue", () => {
         yield* updateIssue({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          assignee: "Developer Agent" as unknown as NonEmptyString
+          assignee: personName("Developer Agent")
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureUpdateDoc.operations?.assignee).toBe("profile-1")
@@ -2473,23 +2481,17 @@ describe("updateIssue", () => {
         const issue = makeIssue({ identifier: "TEST-1" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          userProfiles: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, userProfiles: [] })
 
         const error = yield* updateIssue({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          assignee: "NonExistentAgent" as unknown as NonEmptyString
-        }).pipe(Effect.provide(testLayer), Effect.flip)
+          assignee: personName("NonExistentAgent")
+        }).pipe(Effect.provide(testLayer), withDiagnostics, Effect.flip)
 
         expect(error._tag).toBe("PersonNotFoundError")
       })
     )
-
 
     it.effect("unassigns issue when assignee is null", () =>
       Effect.gen(function* () {
