@@ -63,6 +63,10 @@ process.stdout.write(payload.workspace)
 # Fuer den externen Endpoint bleibt eine explizite HULY_URL-Ueberschreibung moeglich.
 HULY_ENDPOINT="${HULY_URL:-http://127.0.0.1:8087}"
 
+# OPS-36 / AI-1: Kaltstart war zu langsam (>18s).
+# Daher läuft dist/index.cjs jetzt dauerhaft als systemd-Dienst (huly-mcp-daemon.service)
+# mit MCP_TRANSPORT=http auf 127.0.0.1:8088.
+# Wir starten hier nur noch den stdio-proxy.cjs, der die STDIO-Eingaben über SSE an den Daemon durchreicht.
 exec env \
   HULY_URL="$HULY_ENDPOINT" \
   HULY_TOKEN="$token" \
@@ -70,4 +74,4 @@ exec env \
   HULY_TOOL_MODE=auto \
   PROXY_OUTPUT_STRICT=true \
   TOOLSETS="${HULY_TOOLSETS:-projects,issues,comments,documents,search,channels,cards}" \
-  "$NODE_BIN" /srv/projects/huly-mcp/dist/index.cjs
+  "$NODE_BIN" /srv/projects/huly-mcp/stdio-proxy.cjs

@@ -93,3 +93,14 @@ Sollte die Version 0.49.5 im laufenden Betrieb fehlschlagen, existiert ein harte
    ```bash
    pkill -f huly-mcp
    ```
+
+## OPS-36 / AI-1: MCP Daemon für schnelle Starts (Warmer Prozess)
+
+Am 21.08.2026 wurde festgestellt (OPS-36), dass der Kaltstart von Node + Huly-Workspace-Sync unter Last mehr als 18 Sekunden dauern kann, was bei einigen Agenten (insb. Antigravity) zu Timeouts und fälschlichen Permission-Meldungen führte.
+Um dieses Problem an der Wurzel zu beheben und der Anforderung aus AI-1 nach einem "warmen Prozess" gerecht zu werden:
+
+- Der Huly-MCP läuft nun als nativer HTTP-Daemon via systemd (`huly-mcp-daemon.service`) auf `http://127.0.0.1:8088`.
+- Der Daemon ist **zustandslos bzgl. der Identität**. Er lädt den Workspace erst "lazy", sobald die Anfrage eintrifft (`LAZY_ENVS=true`).
+- Das Skript `run-huly-mcp.sh` fungiert nur noch als pfeilschneller STDIO-zu-HTTP (SSE) Proxy (`stdio-proxy.cjs`).
+- Die Token-Authentifizierung (`HULY_TOKEN`) wird vom Proxy dynamisch über die Header (`x-huly-token`, `x-huly-workspace`, `x-huly-url`) bei jedem Request in die Sitzung injiziert. Dadurch bleiben die Identitäten sauber voneinander getrennt (Codex, AGY, Claude), obwohl alle denselben warmen Daemon nutzen.
+- **Wichtig:** Da die MCP-Clients für `stdio` konfiguriert sind, bleibt `run-huly-mcp.sh` der Eintrittspunkt. Wer manuell testen will, startet den Daemon mit `systemctl restart huly-mcp-daemon.service`.
