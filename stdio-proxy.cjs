@@ -8,7 +8,7 @@
 
 const { createInterface } = require("readline");
 
-const endpoint = "http://127.0.0.1:8088/mcp";
+const endpoint = process.env.HULY_MCP_HTTP_ENDPOINT || "http://127.0.0.1:8088/mcp";
 const headers = {
   "accept": "application/json, text/event-stream",
   "content-type": "application/json",
