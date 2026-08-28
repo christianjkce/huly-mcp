@@ -24,6 +24,7 @@ import {
 } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
+import { PersonName } from "../../../src/domain/schemas/shared.js"
 import type { ListIssuesInput } from "../../../src/domain/schemas/issues.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
@@ -247,6 +248,7 @@ interface MockConfig {
   milestones?: Array<HulyMilestone>
   captureMilestoneQueries?: Array<unknown>
   persons?: Array<Person>
+  userProfiles?: Array<Person>
   channels?: Array<Channel>
   tagElements?: Array<TagElement>
   tagReferences?: Array<TagReference>
@@ -273,6 +275,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const statuses = config.statuses ?? []
   const milestones = config.milestones ?? []
   const persons = config.persons ?? []
+  const userProfiles = config.userProfiles ?? []
   const channels = config.channels ?? []
   const tagElements = config.tagElements ?? []
   const tagReferences = config.tagReferences ?? []
@@ -339,6 +342,14 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(persons))
+    }
+    if (_class === "contact:class:UserProfile") {
+      const titleFilter = (query as Record<string, unknown>).title as string | undefined
+      if (titleFilter) {
+        const filtered = userProfiles.filter((p) => (p as unknown as { title: string }).title === titleFilter)
+        return Effect.succeed(toFindResult(filtered))
+      }
+      return Effect.succeed(toFindResult(userProfiles))
     }
     if (_class === tags.class.TagReference) {
       const attachedToFilter = queryField(query, "attachedTo")
@@ -439,6 +450,25 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         if (typeof q.name === "object" && "$like" in (q.name as Record<string, unknown>)) {
           const pattern = assertExists((q.name as { readonly $like?: string }).$like).replace(/%/g, "")
           const found = persons.find((p) => p.name.includes(pattern))
+          return Effect.succeed(found)
+        }
+      }
+      return Effect.succeed(undefined)
+    }
+    if (_class === "contact:class:UserProfile") {
+      const q = query as Record<string, unknown>
+      if (q._id) {
+        const found = userProfiles.find((p) => p._id === q._id)
+        return Effect.succeed(found)
+      }
+      if (q.title) {
+        if (typeof q.title === "string") {
+          const found = userProfiles.find((p) => (p as unknown as { title: string }).title === q.title)
+          return Effect.succeed(found)
+        }
+        if (typeof q.title === "object" && "$like" in (q.title as Record<string, unknown>)) {
+          const pattern = assertExists((q.title as { readonly $like?: string }).$like).replace(/%/g, "")
+          const found = userProfiles.find((p) => (p as unknown as { title: string }).title && (p as unknown as { title: string }).title.includes(pattern))
           return Effect.succeed(found)
         }
       }
@@ -2411,6 +2441,56 @@ describe("updateIssue", () => {
         expect(captureUpdateDoc.operations?.assignee).toBe("person-1")
       })
     )
+    it.effect("updates issue assignee to UserProfile by title", () =>
+      Effect.gen(function* () {
+        const project = makeProject({ identifier: "TEST" })
+        const issue = makeIssue({ identifier: "TEST-1" })
+        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
+        const userProfile = makePerson({ _id: "profile-1" as Ref<Person>, title: "Developer Agent" } as unknown as Partial<Person>)
+
+        const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [issue],
+          statuses,
+          userProfiles: [userProfile],
+          captureUpdateDoc
+        })
+
+        yield* updateIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1"),
+          assignee: PersonName.make("Developer Agent")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
+
+        expect(captureUpdateDoc.operations?.assignee).toBe("profile-1")
+      })
+    )
+
+    it.effect("fails to update assignee if UserProfile not found", () =>
+      Effect.gen(function* () {
+        const project = makeProject({ identifier: "TEST" })
+        const issue = makeIssue({ identifier: "TEST-1" })
+        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
+
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [issue],
+          statuses,
+          userProfiles: []
+        })
+
+        const error = yield* updateIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1"),
+          assignee: PersonName.make("NonExistentAgent")
+        }).pipe(Effect.provide(testLayer), withDiagnostics, Effect.flip)
+
+        expect(error._tag).toBe("PersonNotFoundError")
+      })
+    )
+
 
     it.effect("unassigns issue when assignee is null", () =>
       Effect.gen(function* () {
