@@ -513,6 +513,7 @@ describe("getCard", () => {
       expect(result.parent).toBe("parent-1")
       expect(result.children).toBe(2)
       expect(result.cardSpace).toBe("Cards")
+      expect(result).not.toHaveProperty("properties")
     })
   )
 

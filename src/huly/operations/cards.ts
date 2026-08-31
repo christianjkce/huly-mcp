@@ -244,9 +244,6 @@ export const getCard = (params: GetCardParams): Effect.Effect<CardDetail, GetCar
     }
     const version = cardVersionMetadataFromState(parsedVersion)
 
-    const standardFields = new Set(["content", "parent", "children", "modifiedOn", "createdOn", "space", "version", "history", "deleted", "rank", "title", "name", "creator", "modifiedBy", "createdBy"])
-    const properties = Object.fromEntries(Object.entries(card).filter(([k]) => !standardFields.has(k) && !k.startsWith("_")))
-
     return {
       id: CardId.make(card._id),
       title: cardIdentifier,
@@ -257,8 +254,7 @@ export const getCard = (params: GetCardParams): Effect.Effect<CardDetail, GetCar
       cardSpace: cardSpaceIdentifier,
       ...(version === undefined ? {} : { version }),
       modifiedOn: card.modifiedOn,
-      createdOn: card.createdOn,
-      ...(Object.keys(properties).length > 0 ? { properties } : {})
+      createdOn: card.createdOn
     }
   })
 
