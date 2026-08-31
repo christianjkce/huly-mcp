@@ -69,7 +69,8 @@ import type {
   IssueNotFoundError,
   IssueReferenceError,
   NoUpdateFieldsError,
-  ProjectNotFoundError
+  ProjectNotFoundError,
+  PersonIdentifierAmbiguousError
 } from "../errors.js"
 import {
   ComponentNotFoundError,
@@ -108,6 +109,7 @@ type CreateIssueFromTemplateError =
   | IssueReferenceError
   | IssueTemplateNotFoundError
   | InvalidStatusError
+  | PersonIdentifierAmbiguousError
   | PersonNotFoundError
 
 type UpdateIssueTemplateError =
