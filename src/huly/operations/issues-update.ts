@@ -24,7 +24,6 @@ import { textContentOrClear } from "./clear-field-updates.js"
 import { renderIssueDescriptionForWrite } from "./issue-native-references.js"
 import { findProjectAndIssue, findProjectWithStatuses, resolveStatusByName, stringToPriority } from "./issues-shared.js"
 import { chooseStatusForTaskType, resolveIssueAssignee, resolveTaskTypeWorkflow } from "./issues-write-shared.js"
-import { hulyQuery } from "./query-helpers.js"
 import {
   type CoveredUpdateEntry,
   coveredUpdateEntry,
@@ -148,32 +147,6 @@ const issueUpdateEntries = (
 const isDescriptionUpdatedInPlace = (params: UpdateIssueParams, issue: HulyIssue): boolean =>
   params.description !== undefined && textContentOrClear(params.description) !== undefined && Boolean(issue.description)
 
-const updateWasPersisted = (written: HulyIssue, updateOps: DocumentUpdate<HulyIssue>): boolean =>
-  Object.entries(updateOps)
-    .filter(([field]) => field !== "editedOn" && field !== "modifiedOn")
-    .every(([field, value]) => Reflect.get(written, field) === value)
-
-const verifyIssueUpdate = (
-  client: HulyClient["Service"],
-  issue: HulyIssue,
-  updateOps: DocumentUpdate<HulyIssue>
-): Effect.Effect<void, HulyConnectionError | HulyClientError> =>
-  Effect.gen(function* () {
-    const written = yield* client.findOne(tracker.class.Issue, hulyQuery<HulyIssue>({ _id: issue._id }))
-    if (written === undefined) {
-      return yield* new HulyConnectionError({
-        message:
-          "update_issue failed silently: The backend accepted the operation but the issue could not be read back."
-      })
-    }
-    if (!updateWasPersisted(written, updateOps)) {
-      return yield* new HulyConnectionError({
-        message:
-          "update_issue failed silently: The backend accepted the operation but the issue was not actually modified. Verify you have write permissions for this project."
-      })
-    }
-  })
-
 /**
  * Update an existing issue in a project.
  *
@@ -224,7 +197,6 @@ export const updateIssue = (
 
     if (Object.keys(updateOps).length > 0) {
       yield* client.updateDoc(tracker.class.Issue, project._id, issue._id, updateOps)
-      yield* verifyIssueUpdate(client, issue, updateOps)
     }
 
     return { identifier: IssueIdentifier.make(issue.identifier), updated: true }

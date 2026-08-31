@@ -6,7 +6,7 @@ import type {
   SocialIdentity,
   UserProfile as HulyUserProfile
 } from "@hcengineering/contact"
-import type { AccountUuid, Class, Doc, Ref } from "@hcengineering/core"
+import type { AccountUuid, Doc, Ref } from "@hcengineering/core"
 import { SocialIdType } from "@hcengineering/core"
 import { Effect, Option, Schema } from "effect"
 
@@ -15,14 +15,11 @@ import type { HulyClient, HulyClientError } from "../client.js"
 import { PersonIdentifierAmbiguousError, PersonNotAnEmployeeError, PersonNotFoundError } from "../errors.js"
 import { contact } from "../huly-plugins.js"
 import { escapeLikeWildcards, hulyQuery } from "./query-helpers.js"
-import { toAccountUuid, toRef } from "./sdk-boundary.js"
+import { toAccountUuid, toClassRef, toRef } from "./sdk-boundary.js"
 
 const isEmailIdentifier = Schema.is(Email)
 
-// The published contact plugin exposes UserProfile as a MasterTag ref although the
-// storage API accepts it as a typed class ref. This is the SDK boundary bridge.
-// oxlint-disable-next-line hulymcp/no-type-assertion, hulymcp/no-double-type-assertion
-const userProfileClass = contact.class.UserProfile as unknown as Ref<Class<HulyUserProfile>>
+const userProfileClass = toClassRef<HulyUserProfile>(contact.class.UserProfile)
 
 export const findPersonById = (
   client: HulyClient["Service"],
@@ -189,14 +186,15 @@ export const findIssueAssigneeByExactEmailOrName = (
   client: HulyClient["Service"],
   identifier: PersonRefInput
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
-  isEmailIdentifier(identifier)
-    ? findPersonByExactEmail(client, identifier)
-    : Effect.gen(function* () {
-        const [persons, profilePersons] = yield* Effect.all([
-          client.findAll<HulyPerson>(contact.class.Person, hulyQuery<HulyPerson>({ name: identifier })),
-          findPersonsForAgentProfileTitle(client, identifier)
+  Effect.gen(function* () {
+        const [ordinaryPerson, profilePersons] = yield* Effect.all([
+          findPersonByEmailOrName(client, identifier),
+          findPersonsForAgentProfileTitle(client, PersonName.make(identifier))
         ])
-        const matches = uniquePersonsById([...persons, ...profilePersons])
+        const matches = uniquePersonsById([
+          ...(ordinaryPerson === undefined ? [] : [ordinaryPerson]),
+          ...profilePersons
+        ])
         if (matches.length === 0) return undefined
         if (matches.length > 1) {
           return yield* new PersonIdentifierAmbiguousError({ identifier, matches: Count.make(matches.length) })

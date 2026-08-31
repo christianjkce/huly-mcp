@@ -11,21 +11,9 @@ import type { HulyClient, HulyClientError } from "../client.js"
 import type { PersonIdentifierAmbiguousError } from "../errors.js"
 import { HulyError, PersonNotFoundError } from "../errors.js"
 import { task } from "../huly-plugins.js"
-import { findIssueAssigneeByExactEmailOrName, findPersonByEmailOrName } from "./contacts-shared.js"
+import { findIssueAssigneeByExactEmailOrName } from "./contacts-shared.js"
 import type { WorkflowStatus } from "./issues-shared.js"
 import { hulyQuery } from "./query-helpers.js"
-
-export const resolveAssignee = (
-  client: HulyClient["Service"],
-  assigneeIdentifier: string
-): Effect.Effect<Person, PersonNotFoundError | HulyClientError> =>
-  Effect.gen(function* () {
-    const person = yield* findPersonByEmailOrName(client, assigneeIdentifier)
-    if (person === undefined) {
-      return yield* new PersonNotFoundError({ identifier: assigneeIdentifier })
-    }
-    return person
-  })
 
 export const resolveIssueAssignee = (
   client: HulyClient["Service"],

@@ -534,12 +534,6 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (config.captureUpdateDoc) {
       config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-    if (_class === tracker.class.Issue) {
-      const issue = issues.find((candidate) => candidate._id === _objectId)
-      if (issue !== undefined) {
-        Object.assign(issue, operations as Partial<HulyIssue>)
-      }
-    }
     // Return project with incremented sequence
     const project = assertAt(projects, 0)
     const sequence = config.updateDocResult?.object?.sequence ?? project.sequence + 1
