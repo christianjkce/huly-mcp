@@ -24,7 +24,13 @@ import { DEFAULT_ISSUE_PRIORITY } from "../../domain/schemas/issues.js"
 import { IssueId, IssueIdentifier, type ProjectIdentifier } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
-import type { IssueNotFoundError, IssueReferenceError, PersonNotFoundError, ProjectNotFoundError } from "../errors.js"
+import type {
+  IssueNotFoundError,
+  IssueReferenceError,
+  PersonIdentifierAmbiguousError,
+  PersonNotFoundError,
+  ProjectNotFoundError
+} from "../errors.js"
 import { HulyError, InvalidStatusError } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
 import { renderIssueDescriptionForWrite } from "./issue-native-references.js"
@@ -36,13 +42,14 @@ import {
   resolveStatusByName,
   stringToPriority
 } from "./issues-shared.js"
-import { chooseStatusForTaskType, resolveAssignee, resolveTaskTypeWorkflow } from "./issues-write-shared.js"
+import { chooseStatusForTaskType, resolveIssueAssignee, resolveTaskTypeWorkflow } from "./issues-write-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
 type CreateIssueError =
   | HulyClientError
   | ProjectNotFoundError
+  | PersonIdentifierAmbiguousError
   | IssueNotFoundError
   | InvalidStatusError
   | HulyError
@@ -103,10 +110,10 @@ const resolveCreateIssueStatus = (
 const resolveCreateIssueAssignee = (
   client: HulyClient["Service"],
   params: CreateIssueParams
-): Effect.Effect<Ref<Person> | null, HulyClientError | PersonNotFoundError> =>
+): Effect.Effect<Ref<Person> | null, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   params.assignee === undefined
     ? Effect.succeed(null)
-    : Effect.map(resolveAssignee(client, params.assignee), (person) => person._id)
+    : Effect.map(resolveIssueAssignee(client, params.assignee), (person) => person._id)
 
 const renderCreateIssueDescription = (
   params: CreateIssueParams

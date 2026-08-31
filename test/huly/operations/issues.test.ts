@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import type { Channel, Person } from "@hcengineering/contact"
+import type { Channel, Person, UserProfile } from "@hcengineering/contact"
 import type {
   Attribute,
   Class,
@@ -24,7 +24,6 @@ import {
 } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
-import { PersonName } from "../../../src/domain/schemas/shared.js"
 import type { ListIssuesInput } from "../../../src/domain/schemas/issues.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
@@ -53,6 +52,7 @@ import {
   milestoneId,
   milestoneIdentifier,
   milestoneLabel,
+  personName,
   projectIdentifier,
   statusName
 } from "../../helpers/brands.js"
@@ -181,6 +181,25 @@ const makePerson = (overrides?: Partial<Person>): Person => {
   return Object.assign(base, overrides) as Person
 }
 
+const makeUserProfile = (overrides?: Partial<UserProfile>): UserProfile => {
+  const base: UserProfile = {
+    _id: "profile-1" as Ref<UserProfile>,
+    _class: contact.class.UserProfile,
+    space: "space-1" as Ref<Space>,
+    title: "Developer Agent",
+    content: "markup-1" as MarkupBlobRef,
+    blobs: {},
+    parentInfo: [],
+    rank: "a",
+    person: "person-1" as Ref<Person>,
+    modifiedBy: "user-1" as PersonId,
+    modifiedOn: 0,
+    createdBy: "user-1" as PersonId,
+    createdOn: 0
+  }
+  return Object.assign(base, overrides)
+}
+
 const makeChannel = (overrides?: Partial<Channel>): Channel => {
   const result: Channel = {
     _id: "channel-1" as Ref<Channel>,
@@ -248,7 +267,7 @@ interface MockConfig {
   milestones?: Array<HulyMilestone>
   captureMilestoneQueries?: Array<unknown>
   persons?: Array<Person>
-  userProfiles?: Array<Person>
+  userProfiles?: Array<UserProfile>
   channels?: Array<Channel>
   tagElements?: Array<TagElement>
   tagReferences?: Array<TagReference>
@@ -341,12 +360,16 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         const filtered = persons.filter((p) => p.name === nameFilter)
         return Effect.succeed(toFindResult(filtered))
       }
+      const idFilter = queryField(query, "_id")
+      if (idFilter !== undefined) {
+        return Effect.succeed(toFindResult(persons.filter((person) => matchesQueryValue(person._id, idFilter))))
+      }
       return Effect.succeed(toFindResult(persons))
     }
-    if (_class === "contact:class:UserProfile") {
+    if (_class === contact.class.UserProfile) {
       const titleFilter = (query as Record<string, unknown>).title as string | undefined
       if (titleFilter) {
-        const filtered = userProfiles.filter((p) => (p as unknown as { title: string }).title === titleFilter)
+        const filtered = userProfiles.filter((profile) => profile.title === titleFilter)
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(userProfiles))
@@ -396,6 +419,9 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === tracker.class.Issue) {
       const q = query as Record<string, unknown>
       const opts = options as { sort?: Record<string, number> } | undefined
+      if (q._id) {
+        return Effect.succeed(issues.find((issue) => issue._id === q._id))
+      }
       // Find by identifier or number
       if (q.identifier || q.number) {
         const found = issues.find(
@@ -455,20 +481,20 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       }
       return Effect.succeed(undefined)
     }
-    if (_class === "contact:class:UserProfile") {
+    if (_class === contact.class.UserProfile) {
       const q = query as Record<string, unknown>
       if (q._id) {
-        const found = userProfiles.find((p) => p._id === q._id)
+        const found = userProfiles.find((profile) => profile._id === q._id)
         return Effect.succeed(found)
       }
       if (q.title) {
         if (typeof q.title === "string") {
-          const found = userProfiles.find((p) => (p as unknown as { title: string }).title === q.title)
+          const found = userProfiles.find((profile) => profile.title === q.title)
           return Effect.succeed(found)
         }
         if (typeof q.title === "object" && "$like" in (q.title as Record<string, unknown>)) {
           const pattern = assertExists((q.title as { readonly $like?: string }).$like).replace(/%/g, "")
-          const found = userProfiles.find((p) => (p as unknown as { title: string }).title && (p as unknown as { title: string }).title.includes(pattern))
+          const found = userProfiles.find((profile) => profile.title.includes(pattern))
           return Effect.succeed(found)
         }
       }
@@ -507,6 +533,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   ) => {
     if (config.captureUpdateDoc) {
       config.captureUpdateDoc.operations = operations as Record<string, unknown>
+    }
+    if (_class === tracker.class.Issue) {
+      const issue = issues.find((candidate) => candidate._id === _objectId)
+      if (issue !== undefined) {
+        Object.assign(issue, operations as Partial<HulyIssue>)
+      }
     }
     // Return project with incremented sequence
     const project = assertAt(projects, 0)
@@ -2446,7 +2478,12 @@ describe("updateIssue", () => {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
-        const userProfile = makePerson({ _id: "profile-1" as Ref<Person>, title: "Developer Agent" } as unknown as Partial<Person>)
+        const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Agent Person" })
+        const userProfile = makeUserProfile({
+          _id: "profile-1" as Ref<UserProfile>,
+          person: person._id,
+          title: "Developer Agent"
+        })
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
@@ -2454,6 +2491,7 @@ describe("updateIssue", () => {
           projects: [project],
           issues: [issue],
           statuses,
+          persons: [person],
           userProfiles: [userProfile],
           captureUpdateDoc
         })
@@ -2461,10 +2499,38 @@ describe("updateIssue", () => {
         yield* updateIssue({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          assignee: PersonName.make("Developer Agent")
+          assignee: personName("Developer Agent")
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
-        expect(captureUpdateDoc.operations?.assignee).toBe("profile-1")
+        expect(captureUpdateDoc.operations?.assignee).toBe("person-1")
+      })
+    )
+
+    it.effect("rejects an assignee title that resolves to distinct Persons", () =>
+      Effect.gen(function* () {
+        const project = makeProject({ identifier: "TEST" })
+        const issue = makeIssue({ identifier: "TEST-1" })
+        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
+        const namedPerson = makePerson({ _id: "person-1" as Ref<Person>, name: "Developer Agent" })
+        const profilePerson = makePerson({ _id: "person-2" as Ref<Person>, name: "Profile Owner" })
+        const userProfile = makeUserProfile({ person: profilePerson._id, title: "Developer Agent" })
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [issue],
+          statuses,
+          persons: [namedPerson, profilePerson],
+          userProfiles: [userProfile]
+        })
+
+        const error = yield* Effect.flip(
+          updateIssue({
+            project: projectIdentifier("TEST"),
+            identifier: issueIdentifier("TEST-1"),
+            assignee: personName("Developer Agent")
+          }).pipe(Effect.provide(testLayer), withDiagnostics)
+        )
+
+        expect(error._tag).toBe("PersonIdentifierAmbiguousError")
       })
     )
 
@@ -2474,23 +2540,17 @@ describe("updateIssue", () => {
         const issue = makeIssue({ identifier: "TEST-1" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          userProfiles: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, userProfiles: [] })
 
         const error = yield* updateIssue({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          assignee: PersonName.make("NonExistentAgent")
+          assignee: personName("NonExistentAgent")
         }).pipe(Effect.provide(testLayer), withDiagnostics, Effect.flip)
 
         expect(error._tag).toBe("PersonNotFoundError")
       })
     )
-
 
     it.effect("unassigns issue when assignee is null", () =>
       Effect.gen(function* () {
