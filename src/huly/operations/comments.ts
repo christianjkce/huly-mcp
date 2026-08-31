@@ -133,6 +133,15 @@ export const addComment = (params: AddCommentParams): Effect.Effect<AddCommentRe
       commentId
     )
 
+    // Verify by reading back
+    const written = yield* client.findOne(chunter.class.ChatMessage, { _id: commentId })
+    if (written === undefined) {
+      return yield* new HulyConnectionError({
+        message:
+          "add_comment failed silently: The backend accepted the operation but the comment was not written. Verify you have write permissions for this project."
+      })
+    }
+
     return { commentId: CommentId.make(commentId), issueIdentifier: IssueIdentifier.make(issue.identifier) }
   })
 

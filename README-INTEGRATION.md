@@ -65,8 +65,10 @@ Transactor's `IdentityMiddleware` rejects every transaction when its internal
 The observed rejection is therefore an inconsistent internal identity map in
 Huly, despite consistent persisted account data. Do not work around it by
 sharing another identity or minting a token; preserve the separate sender
-identities and reproduce/report the defect upstream with the version and stack
-trace from OPS-33.
+identities.
+
+**Workaround:** Restart the Transactor container to clear its broken in-memory cache:
+`docker restart huly_v7-transactor-1`. Do not modify accounts, roles, or tokens.
 
 ## Rollback von 0.49.5 auf 0.49.4 (Notfallplan)
 

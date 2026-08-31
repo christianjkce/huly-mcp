@@ -8,15 +8,15 @@ import { UPDATE_ISSUE_FIELDS } from "../../domain/schemas/issues.js"
 import { IssueIdentifier } from "../../domain/schemas/shared.js"
 import type { ConnectionError, HulyClient, HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
-import type {
+import {
   HulyConnectionError,
-  HulyError,
-  InvalidStatusError,
-  IssueNotFoundError,
-  IssueReferenceError,
-  NoUpdateFieldsError,
-  PersonNotFoundError,
-  ProjectNotFoundError
+  type HulyError,
+  type InvalidStatusError,
+  type IssueNotFoundError,
+  type IssueReferenceError,
+  type NoUpdateFieldsError,
+  type PersonNotFoundError,
+  type ProjectNotFoundError
 } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
 import { textContentOrClear } from "./clear-field-updates.js"
@@ -190,6 +190,30 @@ export const updateIssue = (
 
     if (Object.keys(updateOps).length > 0) {
       yield* client.updateDoc(tracker.class.Issue, project._id, issue._id, updateOps)
+
+      // Verify by reading back
+      const written = yield* client.findOne(tracker.class.Issue, { _id: issue._id })
+      if (written === undefined) {
+        return yield* new HulyConnectionError({
+          message:
+            "update_issue failed silently: The backend accepted the operation but the issue could not be read back."
+        })
+      }
+
+      let failedSilently = false
+      for (const [k, v] of Object.entries(updateOps)) {
+        if (k === "editedOn" || k === "modifiedOn") continue
+        if (Reflect.get(written, k) !== v) {
+          failedSilently = true
+          break
+        }
+      }
+      if (failedSilently) {
+        return yield* new HulyConnectionError({
+          message:
+            "update_issue failed silently: The backend accepted the operation but the issue was not actually modified. Verify you have write permissions for this project."
+        })
+      }
     }
 
     return { identifier: IssueIdentifier.make(issue.identifier), updated: true }
